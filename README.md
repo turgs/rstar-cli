@@ -1,51 +1,59 @@
-# rstar-cli
+# rstar
 
-ReceptionStar command-line tool. Binary name: **`rstar`**.
+Command-line tool for [ReceptionStar](https://receptionstar.com).
 
-This is the agent spine for coding agents (layout: product API → CLI + skill → stdio MCP). Hosted MCP is a later thin face of the same catalog.
-
-| | |
-| --- | --- |
-| Product app | [`turgs/ReceptionStar`](https://github.com/turgs/ReceptionStar) |
-| Board | [`turgs/rstar-issues`](https://github.com/turgs/rstar-issues) |
-| Bootstrap ticket | [rstar-issues#502](https://github.com/turgs/rstar-issues/issues/502) |
-| Commands + MCP | [rstar-issues#479](https://github.com/turgs/rstar-issues/issues/479) |
+Use ReceptionStar from your terminal — useful on its own, and for coding agents that run shell commands.
 
 ## Status
 
-Bootstrap only. Ships `rstar version` and a `rstar doctor` stub. Auth, leaf API commands, agent skill, and `rstar mcp` land on **#479**.
+Early preview. The binary currently supports:
 
-## Requirements
+- `rstar version` — print the build version
+- `rstar doctor` — basic environment check
+- `rstar help` — list commands
 
-- Go 1.22+
-
-## Build
-
-```bash
-go build -o rstar ./cmd/rstar
-./rstar version
-./rstar doctor
-```
+Authenticated practice commands are on the way. Install and setup details will also appear in the ReceptionStar help centre when they ship.
 
 ## Install
 
-TBD (release binaries, install script, Homebrew later). For now, build from source.
+### Build from source
 
-## Test
+You need [Go](https://go.dev/dl/) 1.22 or newer.
+
+```bash
+git clone https://github.com/turgs/rstar-cli.git
+cd rstar-cli
+go build -o rstar ./cmd/rstar
+```
+
+Move `rstar` onto your `PATH`, for example:
+
+```bash
+mkdir -p ~/.local/bin
+mv rstar ~/.local/bin/
+```
+
+Release binaries, an install script, and package-manager installs will come later.
+
+## Usage
+
+```bash
+rstar version
+rstar doctor
+rstar help
+```
+
+## Configuration
+
+Nothing to configure yet. When sign-in lands, you will connect `rstar` to your practice on [receptionstar.com](https://receptionstar.com).
+
+## Development
 
 ```bash
 go test ./...
+make smoke
 ```
-
-## Layout
-
-```text
-cmd/rstar/          # binary entrypoint
-internal/version/   # version string (link-time override ready)
-```
-
-HTTP client and domain catalog will live in this module until hosted MCP needs a shared extract (no separate SDK repo in v1).
 
 ## License
 
-MIT
+[MIT](LICENSE)
