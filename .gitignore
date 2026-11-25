@@ -1,0 +1,11 @@
+/rstar
+/bin/
+*.exe
+*.test
+*.out
+.DS_Store
+.idea/
+.vscode/
+*.swp
+coverage.out
+dist/
