@@ -2,7 +2,7 @@
 
 ReceptionStar command-line tool. Binary name: **`rstar`**.
 
-This is the agent spine for coding agents (37signals layout: product API → CLI + skill → stdio MCP). Hosted MCP is a later thin face of the same catalog.
+This is the agent spine for coding agents (layout: product API → CLI + skill → stdio MCP). Hosted MCP is a later thin face of the same catalog.
 
 | | |
 | --- | --- |
