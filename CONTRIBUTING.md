@@ -4,7 +4,7 @@ Thanks for helping with the ReceptionStar CLI.
 
 ## Setup
 
-1. Install [Go](https://go.dev/dl/) 1.22+.
+1. Install [Go](https://go.dev/dl/) 1.25+.
 2. Clone this repository.
 3. Run the checks you will see in CI:
 

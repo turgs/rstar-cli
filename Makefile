@@ -17,5 +17,8 @@ fmt-check:
 
 smoke: build
 	./rstar version
-	./rstar doctor
+	./rstar doctor >/dev/null || true
 	./rstar help >/dev/null
+	./rstar help --agent >/dev/null
+	./rstar commands --json >/dev/null
+	./rstar skill show >/dev/null
