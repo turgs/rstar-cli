@@ -207,7 +207,7 @@ func TestDispatchMergeSuccessTopLevelBody(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"merged": true, "winner_id": 10, "loser_id": 11,
 			"moved_record_counts": map[string]any{},
-			"rate_limit":         map[string]any{"limit": 100, "remaining": 1, "reset": 5},
+			"rate_limit":          map[string]any{"limit": 100, "remaining": 1, "reset": 5},
 		})
 	}))
 	defer srv.Close()
