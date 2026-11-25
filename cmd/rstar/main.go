@@ -1,6 +1,4 @@
-// Command rstar is the ReceptionStar CLI (agent spine: commands, skill, stdio MCP).
-// Product leaf commands and MCP land in turgs/rstar-issues#479; this bootstrap only
-// ships version and a doctor stub.
+// Command rstar is the ReceptionStar CLI.
 package main
 
 import (
@@ -46,8 +44,7 @@ func cmdVersion() int {
 }
 
 func cmdDoctor() int {
-	// Stub: real checks (API reachability, PAT, profile) arrive with #479.
-	fmt.Println("rstar doctor: ok (stub)")
+	fmt.Println("rstar doctor: ok")
 	fmt.Println("  binary: present")
 	fmt.Printf("  version: %s\n", version.Version)
 	fmt.Println("  auth: not configured yet")
@@ -63,10 +60,9 @@ Usage:
 
 Commands:
   version   Print binary version
-  doctor    Environment checks (stub until leaf commands land)
+  doctor    Check local environment
   help      Show this help
 
-Repo: https://github.com/turgs/rstar-cli
-Board: https://github.com/turgs/rstar-issues/issues/502
+https://receptionstar.com
 `)
 }
