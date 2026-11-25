@@ -68,3 +68,61 @@ func TestMissingConfig(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestInvalidBaseURL(t *testing.T) {
+	c := New("not-a-url", "tok")
+	_, err := c.Get(context.Background(), "/clients", nil)
+	if output.AsCLIError(err).Body.Code != output.CodeConfig {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestResolveRejectsDotDot(t *testing.T) {
+	c := New("https://example.com", "tok")
+	_, err := c.resolve("/clients/../heart", nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestResolveRejectsEncodedDotDot(t *testing.T) {
+	c := New("https://example.com", "tok")
+	// path.Clean after parse must catch %2e%2e walking above /api/v1.
+	_, err := c.resolve("/clients/%2e%2e/%2e%2e/secret", nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestResolveJoin(t *testing.T) {
+	c := New("https://example.com", "tok")
+	got, err := c.resolve("/clients", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "https://example.com/api/v1/clients" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestRedirectRefused(t *testing.T) {
+	final := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("should not follow redirect")
+	}))
+	defer final.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, final.URL+"/api/v1/clients", http.StatusFound)
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "tok")
+	// Keep CheckRedirect; use a plain transport so only our client policy applies.
+	c.HTTPClient.Transport = http.DefaultTransport
+	_, err := c.Get(context.Background(), "/clients", nil)
+	if err == nil {
+		t.Fatal("expected redirect error")
+	}
+	if output.AsCLIError(err).Body.Code != output.CodeNetwork {
+		t.Fatalf("got %v", err)
+	}
+}

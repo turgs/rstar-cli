@@ -3,7 +3,9 @@ package commands
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -54,11 +56,26 @@ var doctorCmd = &cobra.Command{
 				Detail: "not set",
 				Hint:   "rstar auth login --base-url https://YOUR.receptionstar.com TOKEN",
 			})
-		} else {
+		} else if err := config.ValidateBaseURL(cfg.BaseURL); err != nil {
 			checks = append(checks, doctorCheck{
 				Name:   "base_url",
-				Status: "pass",
-				Detail: fmt.Sprintf("%s (from %s)", cfg.BaseURL, cfg.BaseURLSource),
+				Status: "fail",
+				Detail: err.Error(),
+				Hint:   "rstar auth login --base-url https://YOUR.receptionstar.com TOKEN",
+			})
+		} else {
+			status := "pass"
+			detail := fmt.Sprintf("%s (from %s)", cfg.BaseURL, cfg.BaseURLSource)
+			hint := ""
+			if isInsecureHTTPBase(cfg.BaseURL) {
+				status = "warn"
+				hint = "PAT will be sent over cleartext HTTP; prefer https:// for non-loopback hosts"
+			}
+			checks = append(checks, doctorCheck{
+				Name:   "base_url",
+				Status: status,
+				Detail: detail,
+				Hint:   hint,
 			})
 		}
 
@@ -87,7 +104,8 @@ var doctorCmd = &cobra.Command{
 			})
 		}
 
-		if cfg.BaseURL != "" && token != "" {
+		baseOK := cfg.BaseURL != "" && config.ValidateBaseURL(cfg.BaseURL) == nil
+		if baseOK && token != "" {
 			_, client, err := resolveRuntime()
 			if err != nil {
 				checks = append(checks, doctorCheck{Name: "api", Status: "fail", Detail: err.Error()})
@@ -114,11 +132,25 @@ var doctorCmd = &cobra.Command{
 				}
 			}
 		} else {
-			checks = append(checks, doctorCheck{Name: "api", Status: "skip", Detail: "needs base URL and token"})
+			checks = append(checks, doctorCheck{Name: "api", Status: "skip", Detail: "needs valid base URL and token"})
 		}
 
 		return finishDoctor(checks)
 	},
+}
+
+func isInsecureHTTPBase(baseURL string) bool {
+	u, err := url.Parse(config.NormalizeBaseURL(baseURL))
+	if err != nil || u.Scheme != "http" {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	switch host {
+	case "localhost", "127.0.0.1", "::1":
+		return false
+	default:
+		return true
+	}
 }
 
 func finishDoctor(checks []doctorCheck) error {

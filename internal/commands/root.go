@@ -80,9 +80,20 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&flagBaseURL, "base-url", "", "Practice base URL (overrides profile)")
 	rootCmd.PersistentFlags().StringVar(&flagToken, "token", "", "PAT (overrides keyring; prefer auth login)")
 	rootCmd.PersistentFlags().BoolVar(&flagAllowWrite, "write", false, "Allow write actions on leaf commands that mutate data")
+	// Persistent so `rstar --help --agent` works (ticket acceptance), not only `rstar help --agent`.
+	rootCmd.PersistentFlags().BoolVar(&flagAgentHelp, "agent", false, "With help/--help: print agent-oriented help (discovery, envelope, PHI)")
 
 	rootCmd.SetOut(stdout)
 	rootCmd.SetErr(stderr)
+
+	defaultHelp := rootCmd.HelpFunc()
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		if flagAgentHelp || agentHelpRequested(os.Args) {
+			printAgentHelp(cmd.OutOrStdout())
+			return
+		}
+		defaultHelp(cmd, args)
+	})
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(doctorCmd)
@@ -96,7 +107,7 @@ func init() {
 }
 
 func newHelpCommand() *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "help [command]",
 		Short: "Help about any command",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -114,8 +125,6 @@ func newHelpCommand() *cobra.Command {
 			return target.Help()
 		},
 	}
-	cmd.Flags().BoolVar(&flagAgentHelp, "agent", false, "Print agent-oriented help (discovery, envelope, PHI)")
-	return cmd
 }
 
 func agentHelpRequested(args []string) bool {
@@ -173,6 +182,11 @@ func resolveRuntime() (*config.Config, *apiclient.Client, error) {
 	})
 	if err != nil {
 		return nil, nil, output.ErrConfig(err.Error())
+	}
+	if cfg.BaseURL != "" {
+		if err := config.ValidateBaseURL(cfg.BaseURL); err != nil {
+			return nil, nil, output.ErrConfig(err.Error()).WithHint("Pass --base-url https://YOUR.receptionstar.com or re-run 'rstar auth login'.")
+		}
 	}
 	if cfg.Token == "" {
 		tok, _, err := authStore.Get(cfg.ProfileName)

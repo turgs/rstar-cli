@@ -79,3 +79,26 @@ func TestValidateProfileName(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestValidateBaseURL(t *testing.T) {
+	if err := ValidateBaseURL("https://acme.receptionstar.com"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateBaseURL("http://localhost:3001"); err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{"", "not-a-url", "example.com", "ftp://x", "//evil.com", "https://user:pass@host"} {
+		if err := ValidateBaseURL(bad); err == nil {
+			t.Fatalf("expected error for %q", bad)
+		}
+	}
+}
+
+func TestUpsertRejectsBadBaseURL(t *testing.T) {
+	dir := t.TempDir()
+	SetTestConfigDir(dir)
+	t.Cleanup(ResetTestConfigDir)
+	if err := UpsertProfile("acme", "not-a-url", true); err == nil {
+		t.Fatal("expected error")
+	}
+}

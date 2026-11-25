@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -31,6 +32,11 @@ func New(baseURL, token string) *Client {
 		Token:   strings.TrimSpace(token),
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
+			// Practice /api/v1 should not redirect; refuse so Bearer is never
+			// replayed onto an unexpected hop (same-host different port, etc.).
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return fmt.Errorf("refusing HTTP redirect from practice API")
+			},
 		},
 		UserAgent: "rstar-cli",
 	}
@@ -78,6 +84,9 @@ func (c *Client) Do(ctx context.Context, method, path string, query url.Values, 
 	}
 	if c.BaseURL == "" {
 		return nil, output.ErrConfig("practice base URL is not set").WithHint("Pass --base-url or run 'rstar auth login --base-url https://YOUR.receptionstar.com TOKEN'.")
+	}
+	if err := config.ValidateBaseURL(c.BaseURL); err != nil {
+		return nil, output.ErrConfig(err.Error()).WithHint("Pass --base-url https://YOUR.receptionstar.com or re-run 'rstar auth login'.")
 	}
 	if c.Token == "" {
 		return nil, output.ErrAuth("not authenticated")
@@ -157,19 +166,46 @@ func (c *Client) Delete(ctx context.Context, path string, query url.Values) (*Re
 	return c.Do(ctx, http.MethodDelete, path, query, nil)
 }
 
-func (c *Client) resolve(path string, query url.Values) (string, error) {
-	path = strings.TrimSpace(path)
-	if path == "" {
+func (c *Client) resolve(apiPath string, query url.Values) (string, error) {
+	apiPath = strings.TrimSpace(apiPath)
+	if apiPath == "" {
 		return "", fmt.Errorf("empty path")
 	}
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
+	if strings.Contains(apiPath, "://") {
+		return "", fmt.Errorf("path must be relative to /api/v1, not an absolute URL")
+	}
+	apiPath = strings.TrimPrefix(apiPath, "/")
+	for _, seg := range strings.Split(apiPath, "/") {
+		if seg == "." || seg == ".." {
+			return "", fmt.Errorf("invalid path segment %q", seg)
+		}
 	}
 	root := config.APIRoot(c.BaseURL)
-	u, err := url.Parse(root + path)
+	full, err := url.JoinPath(root, apiPath)
 	if err != nil {
 		return "", err
 	}
+	u, err := url.Parse(full)
+	if err != nil {
+		return "", err
+	}
+	base, err := url.Parse(root)
+	if err != nil {
+		return "", err
+	}
+	if u.Scheme != base.Scheme || u.Host != base.Host {
+		return "", fmt.Errorf("path escapes practice host")
+	}
+	// Clean after parse so percent-encoded %2e%2e cannot walk out of /api/v1.
+	basePath := path.Clean("/" + strings.Trim(base.Path, "/"))
+	if basePath == "." {
+		basePath = "/"
+	}
+	cleaned := path.Clean(u.Path)
+	if cleaned != basePath && !strings.HasPrefix(cleaned, basePath+"/") {
+		return "", fmt.Errorf("path escapes API root")
+	}
+	u.Path = cleaned
 	if query != nil {
 		u.RawQuery = query.Encode()
 	}

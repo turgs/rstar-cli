@@ -35,6 +35,15 @@ func TestBinarySmoke(t *testing.T) {
 		t.Fatalf("agent help: %s", out)
 	}
 
+	// Ticket acceptance: --help --agent (persistent flag + HelpFunc), not only help --agent.
+	out, err = exec.Command(bin, "--help", "--agent").CombinedOutput()
+	if err != nil {
+		t.Fatalf("--help --agent: %v %s", err, out)
+	}
+	if !strings.Contains(string(out), "Envelope") || !strings.Contains(string(out), "PHI") {
+		t.Fatalf("--help --agent: %s", out)
+	}
+
 	out, err = exec.Command(bin, "commands", "--json").CombinedOutput()
 	if err != nil {
 		t.Fatalf("commands: %v %s", err, out)

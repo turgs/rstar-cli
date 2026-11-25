@@ -4,6 +4,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,7 +122,7 @@ func LoadFile() (*File, error) {
 	return &f, nil
 }
 
-// SaveFile writes config.yaml with mode 0600.
+// SaveFile writes config.yaml with mode 0600 (atomic replace).
 func SaveFile(f *File) error {
 	dir, err := Dir()
 	if err != nil {
@@ -141,7 +142,7 @@ func SaveFile(f *File) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	return writeFileAtomic(path, data, 0o600)
 }
 
 // ResolveOptions control Load.
@@ -217,8 +218,8 @@ func UpsertProfile(name, baseURL string, activate bool) error {
 		return err
 	}
 	baseURL = NormalizeBaseURL(baseURL)
-	if baseURL == "" {
-		return errors.New("base URL is required")
+	if err := ValidateBaseURL(baseURL); err != nil {
+		return err
 	}
 
 	file, err := LoadFile()
@@ -255,6 +256,28 @@ func NormalizeBaseURL(u string) string {
 	return u
 }
 
+// ValidateBaseURL requires an absolute http(s) URL with a host.
+func ValidateBaseURL(u string) error {
+	u = NormalizeBaseURL(u)
+	if u == "" {
+		return errors.New("base URL is required")
+	}
+	parsed, err := url.Parse(u)
+	if err != nil {
+		return fmt.Errorf("invalid base URL: %w", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("base URL must use http or https scheme (got %q)", u)
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("base URL must include a host (got %q)", u)
+	}
+	if parsed.User != nil {
+		return errors.New("base URL must not include userinfo")
+	}
+	return nil
+}
+
 // ValidateProfileName allows simple profile keys.
 func ValidateProfileName(name string) error {
 	if name == "" {
@@ -272,4 +295,36 @@ func ValidateProfileName(name string) error {
 // APIRoot returns baseURL + /api/v1.
 func APIRoot(baseURL string) string {
 	return NormalizeBaseURL(baseURL) + "/api/v1"
+}
+
+// writeFileAtomic writes data to path via a temp file + rename (mode applied).
+func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	ok := false
+	defer func() {
+		if !ok {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return err
+	}
+	ok = true
+	return nil
 }

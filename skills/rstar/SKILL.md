@@ -26,7 +26,7 @@ argument-hint: "[action] [args...]"
 3. **Auth first.** If calls fail with unauthorized/config errors, run `rstar doctor --json` and `rstar auth status --json`. Login: `rstar auth login --base-url https://PRACTICE.receptionstar.com TOKEN` (token from Settings > Your Account > API Keys).
 4. **PHI is real.** Client list/show is health-related personal data. Do not paste full client payloads into public tickets, chat logs, or commit messages. Prefer ids + sparse `--fields` when summarizing to a human.
 5. **Clinical bodies stay gated.** This skill’s vertical slice is identity + clients. When clinical actions appear, note bodies need explicit unlock and audit - never request `include_body` unless the user clearly needs the body and policy allows it.
-6. **Writes are explicit.** Leaf mutations need `--write`. MCP defaults to read-only; only use `rstar mcp --writes` when the user asked to change data and the PAT has write scopes.
+6. **Writes are explicit.** MCP defaults to read-only; only use `rstar mcp --writes` when the user asked to change data and the PAT has write scopes. CLI leaf mutations (when present) need `--write`. This slice’s CLI leaves are read-only (`identity`, `clients list|show`); client writes go through MCP + catalog.
 7. **One practice per profile.** The API is practice-host scoped. `rstar identity practices` shows the active profile base URL - not a multi-tenant dump.
 8. **MCP shares the catalog.** `rstar mcp` serves ADR domain gateways (`rstar_identity`, `rstar_clients`, …) with `{action,params}` and in-band `describe`. It does not shell out to CLI subprocesses.
 

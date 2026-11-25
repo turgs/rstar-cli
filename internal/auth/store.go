@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -76,6 +77,9 @@ func (s *Store) Set(profile, token string) (storage string, err error) {
 	if token == "" {
 		return "", errors.New("token is required")
 	}
+	if strings.ContainsAny(token, "\r\n\t") {
+		return "", errors.New("token must not contain whitespace control characters")
+	}
 	if err := config.ValidateProfileName(profile); err != nil {
 		return "", err
 	}
@@ -85,6 +89,9 @@ func (s *Store) Set(profile, token string) (storage string, err error) {
 			_ = s.deleteFile(profile) // avoid stale file copy
 			return "keyring", nil
 		}
+		// Keyring write failed; file becomes source of truth. Drop any older
+		// keyring value so Get does not prefer a stale PAT over the new file.
+		_ = keyring.Delete(keyringService, keyringUser(profile))
 	}
 	if err := s.setFile(profile, token); err != nil {
 		return "", err
@@ -184,10 +191,47 @@ func (s *Store) saveFile(m fileStore) error {
 	}
 	var b strings.Builder
 	b.WriteString("# rstar credentials — mode 0600; prefer OS keyring when available\n")
-	for k, v := range m {
-		fmt.Fprintf(&b, "%s\t%s\n", k, v)
+	// Stable order keeps diffs quiet if a human opens the file.
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
 	}
-	return os.WriteFile(path, []byte(b.String()), 0o600)
+	sort.Strings(keys)
+	for _, k := range keys {
+		fmt.Fprintf(&b, "%s\t%s\n", k, m[k])
+	}
+	return writeFileAtomic(path, []byte(b.String()), 0o600)
+}
+
+func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	ok := false
+	defer func() {
+		if !ok {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return err
+	}
+	ok = true
+	return nil
 }
 
 func (s *Store) setFile(profile, token string) error {

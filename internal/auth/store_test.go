@@ -35,3 +35,10 @@ func TestFileRoundTrip(t *testing.T) {
 		t.Fatalf("want empty after delete, got %q", tok)
 	}
 }
+
+func TestRejectTokenWithNewline(t *testing.T) {
+	s := &Store{PreferKeyring: false, FileDir: t.TempDir()}
+	if _, err := s.Set("acme", "rs_pat_x\nsmuggled"); err == nil {
+		t.Fatal("expected error")
+	}
+}

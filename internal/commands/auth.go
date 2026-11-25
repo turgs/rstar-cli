@@ -41,8 +41,9 @@ var authLoginCmd = &cobra.Command{
 			}
 			base = cfg.BaseURL
 		}
-		if base == "" {
-			return output.ErrUsage("base URL is required").WithHint("Pass --base-url https://YOUR.receptionstar.com")
+		base = config.NormalizeBaseURL(base)
+		if err := config.ValidateBaseURL(base); err != nil {
+			return output.ErrUsage(err.Error()).WithHint("Pass --base-url https://YOUR.receptionstar.com")
 		}
 		profile := firstNonEmpty(authLoginProfile, flagProfile)
 		if profile == "" {
