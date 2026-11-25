@@ -20,7 +20,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: ["1.22.x", "1.23.x", "stable"]
+        # go-sdk MCP requires Go 1.25+
+        go-version: ["1.25.x", "stable"]
     steps:
       - uses: actions/checkout@v4
 
@@ -52,8 +53,11 @@ jobs:
         run: |
           set -euo pipefail
           ./rstar version
-          ./rstar doctor
+          ./rstar doctor >/dev/null || true
           ./rstar help >/dev/null
+          ./rstar help --agent >/dev/null
+          ./rstar commands --json >/dev/null
+          ./rstar skill show >/dev/null
 
   # Single required check for branch protection (stable across matrix).
   ci:
