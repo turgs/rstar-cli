@@ -216,6 +216,7 @@ func mapAPIError(res *Response) error {
 	code := output.CodeAPI
 	msg := fmt.Sprintf("API request failed (%d)", res.StatusCode)
 	hint := ""
+	field := ""
 	retryable := false
 
 	switch res.StatusCode {
@@ -239,6 +240,9 @@ func mapAPIError(res *Response) error {
 		hint = "Wait and retry; check rate_limit in the response meta."
 	}
 
+	// ReceptionStar shapes (ApiAuthentication + ClientsController + merge):
+	//   { "errors": [ { "field", "message", "code?", "hint?", "retryable?" } ] }
+	//   { "error": "string" }   // Client::Merger::MergeError
 	if errs := res.Errors(); len(errs) > 0 {
 		e := errs[0]
 		if m, ok := e["message"].(string); ok && m != "" {
@@ -250,10 +254,27 @@ func mapAPIError(res *Response) error {
 		if h, ok := e["hint"].(string); ok && h != "" {
 			hint = h
 		}
+		if f, ok := e["field"].(string); ok && f != "" {
+			field = f
+		}
 		if r, ok := e["retryable"].(bool); ok {
 			retryable = r
 		}
-	} else if res.Body == nil && len(res.Raw) > 0 {
+	} else if res.Body != nil {
+		switch v := res.Body["error"].(type) {
+		case string:
+			if strings.TrimSpace(v) != "" {
+				msg = strings.TrimSpace(v)
+			}
+		case map[string]any:
+			if m, ok := v["message"].(string); ok && m != "" {
+				msg = m
+			}
+			if c, ok := v["code"].(string); ok && c != "" {
+				code = c
+			}
+		}
+	} else if len(res.Raw) > 0 {
 		msg = strings.TrimSpace(string(res.Raw))
 		if len(msg) > 200 {
 			msg = msg[:200] + "…"
@@ -263,6 +284,9 @@ func mapAPIError(res *Response) error {
 	ce := output.ErrAPI(code, msg, res.StatusCode).WithRetryable(retryable)
 	if hint != "" {
 		ce = ce.WithHint(hint)
+	}
+	if field != "" {
+		ce = ce.WithField(field)
 	}
 	return ce
 }

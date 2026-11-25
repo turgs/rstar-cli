@@ -142,13 +142,15 @@ func clientsDomain() Domain {
 		Blurb: "Client records (P1 PHI: treat carefully; never echo into public logs).",
 		Actions: []Action{
 			{
-				Name: "list", Summary: "List clients (paginated)",
+				Name: "list", Summary: "List clients (paginated; excludes archived)",
 				ReadOnly: true, Implemented: true, Method: "GET", Path: "/clients",
 				Params: []Param{
 					{Name: "page", In: "query", Type: "integer"},
 					{Name: "per_page", In: "query", Type: "integer", Description: "Default 25, max 100"},
 					{Name: "search", In: "query", Type: "string", Description: "Name/email search"},
-					{Name: "fields", In: "query", Type: "string", Description: "Sparse field list"},
+					{Name: "fields", In: "query", Type: "string", Description: "Sparse field list (comma-separated)"},
+					{Name: "from_date", In: "query", Type: "string", Description: "created_at >= YYYY-MM-DD"},
+					{Name: "to_date", In: "query", Type: "string", Description: "created_at <= YYYY-MM-DD"},
 				},
 			},
 			{
@@ -207,7 +209,14 @@ func clientsDomain() Domain {
 				Params: []Param{
 					{Name: "id", In: "path", Type: "string", Required: true, Description: "Winner client id"},
 					{Name: "loser_id", In: "body", Type: "string", Required: true},
+					{Name: "merge_reason", In: "body", Type: "string"},
 				},
+			},
+			{
+				// Rails destroy refuses unless archived first (422).
+				Name: "destroy", Summary: "Permanently delete an archived client",
+				ReadOnly: false, Implemented: true, Method: "DELETE", Path: "/clients/{id}", Destructive: true,
+				Params: []Param{{Name: "id", In: "path", Type: "string", Required: true}},
 			},
 		},
 	}

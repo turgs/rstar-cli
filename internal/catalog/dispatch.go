@@ -202,27 +202,56 @@ func (d *Dispatcher) dispatchClients(ctx context.Context, act Action, params map
 		if loser == "" {
 			return nil, output.ErrUsage("merge requires params.loser_id")
 		}
-		res, err := d.Client.Post(ctx, "/clients/"+url.PathEscape(id)+"/merge", nil, map[string]any{"loser_id": loser})
+		// Rails ClientsController#merge reads params[:loser_id] (and optional merge_reason).
+		body := map[string]any{"loser_id": loser}
+		if reason, ok := stringParam(params, "merge_reason"); ok && reason != "" {
+			body["merge_reason"] = reason
+		}
+		res, err := d.Client.Post(ctx, "/clients/"+url.PathEscape(id)+"/merge", nil, body)
 		if err != nil {
 			return nil, err
 		}
-		return &Result{Data: res.Data(), Summary: "clients merged", Meta: metaFrom(res)}, nil
+		// Merge success is top-level JSON (no data wrapper): {merged, winner_id, ...}.
+		// Prefer body["data"] when present; otherwise copy body minus rate_limit/pagination.
+		var data any
+		if res.Data() != nil {
+			data = res.Data()
+		} else if res.Body != nil {
+			cp := map[string]any{}
+			for k, v := range res.Body {
+				if k == "rate_limit" || k == "pagination" {
+					continue
+				}
+				cp[k] = v
+			}
+			data = cp
+		}
+		return &Result{Data: data, Summary: "clients merged", Meta: metaFrom(res)}, nil
+	case "destroy":
+		// Rails: DELETE /clients/:id — only succeeds when already archived (422 otherwise).
+		id, err := requireID(params)
+		if err != nil {
+			return nil, err
+		}
+		res, err := d.Client.Delete(ctx, "/clients/"+url.PathEscape(id), nil)
+		if err != nil {
+			return nil, err
+		}
+		// 204 No Content — empty body.
+		return &Result{Data: map[string]any{"deleted": true, "id": id}, Summary: "client deleted", Meta: metaFrom(res)}, nil
 	default:
 		return nil, output.NewError(output.CodeUnknownAction, act.Name, output.ExitUsage)
 	}
 }
 
+// clientListResult maps the Rails index.json.jb shape into the agent envelope:
+//
+//	API:  { data: { clients: [...] }, pagination: {...}, rate_limit: {...} }
+//	CLI:  envelope.data = { clients: [...] }; envelope.meta = pagination + rate_limit
+//
+// Avoids the old double-wrap envelope.data.data.clients.
 func clientListResult(res *apiclient.Response, summary string) *Result {
-	data := map[string]any{"data": res.Data()}
-	if res.Body != nil {
-		if p, ok := res.Body["pagination"]; ok {
-			data["pagination"] = p
-		}
-		if rl, ok := res.Body["rate_limit"]; ok {
-			data["rate_limit"] = rl
-		}
-	}
-	return &Result{Data: data, Summary: summary, Meta: metaFrom(res)}
+	return &Result{Data: res.Data(), Summary: summary, Meta: metaFrom(res)}
 }
 
 func metaFrom(res *apiclient.Response) map[string]any {
