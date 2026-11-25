@@ -9,3 +9,6 @@
 *.swp
 coverage.out
 dist/
+
+# Agent / local scratch (handoff, notes)
+tmp/
