@@ -1,0 +1,68 @@
+# GoReleaser config for rstar CLI.
+# Docs: https://goreleaser.com
+version: 2
+project_name: rstar
+
+builds:
+  - id: rstar
+    main: ./cmd/rstar
+    binary: rstar
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/turgs/rstar-cli/internal/version.Version={{.Version}}
+      - -X github.com/turgs/rstar-cli/internal/version.Commit={{.Commit}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge "
+      - "^chore"
+      - "^docs:"
+      - "^ci:"
+
+release:
+  github:
+    owner: turgs
+    name: rstar-cli
+  draft: false
+  prerelease: auto
+  name_template: "v{{.Version}}"
+  footer: |
+    ## Install
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/turgs/rstar-cli/main/scripts/install.sh | bash
+    ```
+
+    Or download the archive for your platform below, verify `checksums.txt`, extract, and place `rstar` on your `PATH`.
+
+    Upgrade an existing install-script/tarball binary with `rstar upgrade`.

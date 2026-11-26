@@ -105,6 +105,7 @@ func init() {
 	rootCmd.AddCommand(commandsCmd)
 	rootCmd.AddCommand(mcpCmd)
 	rootCmd.AddCommand(skillCmd)
+	rootCmd.AddCommand(upgradeCmd)
 	rootCmd.AddCommand(newHelpCommand())
 }
 
@@ -145,6 +146,7 @@ Discovery
   rstar commands --json          Full command catalog
   rstar help --agent             This text
   rstar doctor --json            Config/auth/API health
+  rstar upgrade                  Explicit self-update (release installs)
   rstar mcp                      Stdio MCP (read-only default)
 
 Envelope (--json)

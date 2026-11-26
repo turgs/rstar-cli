@@ -58,6 +58,7 @@ jobs:
           ./rstar help --agent >/dev/null
           ./rstar commands --json >/dev/null
           ./rstar skill show >/dev/null
+          ./rstar upgrade --help >/dev/null
 
   # Single required check for branch protection (stable across matrix).
   ci:
