@@ -22,3 +22,7 @@ smoke: build
 	./rstar help --agent >/dev/null
 	./rstar commands --json >/dev/null
 	./rstar skill show >/dev/null
+
+.PHONY: catalog-json
+catalog-json:
+	go run ./cmd/rstar-catalog-export
