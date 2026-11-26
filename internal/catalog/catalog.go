@@ -132,7 +132,7 @@ func calendarDomain() Domain {
 					{Name: "per_page", In: "query", Type: "integer", Description: "Default 25, max 100"},
 					{Name: "from_date", In: "query", Type: "string", Description: "YYYY-MM-DD (alias: from)"},
 					{Name: "to_date", In: "query", Type: "string", Description: "YYYY-MM-DD (alias: to)"},
-					{Name: "is_appointment", In: "query", Type: "string", Description: "true|false; CLI defaults true"},
+					{Name: "is_appointment", In: "query", Type: "string", Description: "true|false; defaults true when omitted"},
 					{Name: "client_id", In: "query", Type: "string"},
 					{Name: "client_ids", In: "query", Type: "string", Description: "Comma-separated client ids"},
 					{Name: "user_id", In: "query", Type: "string", Description: "Practitioner id"},
