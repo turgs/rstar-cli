@@ -1,4 +1,4 @@
-.PHONY: build test vet fmt-check smoke
+.PHONY: build test vet fmt-check smoke catalog-json
 
 # Only stamp a release version when HEAD is exactly on a v* tag; otherwise keep 0.0.0-dev
 # so `rstar upgrade` treats local builds as non-release.
@@ -29,3 +29,6 @@ smoke: build
 	./rstar commands --json >/dev/null
 	./rstar skill show >/dev/null
 	./rstar upgrade --help >/dev/null
+
+catalog-json:
+	go run ./cmd/rstar-catalog-export

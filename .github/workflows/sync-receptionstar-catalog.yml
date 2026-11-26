@@ -1,0 +1,82 @@
+# When internal/catalog changes on main, open/update a ReceptionStar PR that
+# commits config/mcp/catalog.json (hosted MCP snapshot).
+#
+# Board: turgs/rstar-issues#508 (approach A — producer pushes consumer).
+# Fail-closed check on ReceptionStar remains: bin/sync-mcp-catalog --check (#506).
+#
+# Secret (repo: turgs/rstar-cli):
+#   RECEPTIONSTAR_CATALOG_SYNC_TOKEN
+# Fine-grained PAT (or classic) with access to private turgs/ReceptionStar:
+#   Contents: Read and write
+#   Pull requests: Read and write
+# Until the secret exists, this workflow no-ops with a notice (does not fail CI).
+
+name: sync-receptionstar-catalog
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "internal/catalog/**"
+      - "cmd/rstar-catalog-export/**"
+      - "scripts/sync-receptionstar-catalog.sh"
+      - ".github/workflows/sync-receptionstar-catalog.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: sync-receptionstar-catalog
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Open ReceptionStar catalog PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check sync token
+        id: token
+        env:
+          TOKEN: ${{ secrets.RECEPTIONSTAR_CATALOG_SYNC_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TOKEN}" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::RECEPTIONSTAR_CATALOG_SYNC_TOKEN not set on turgs/rstar-cli — skip producer sync (turgs/rstar-issues#508). Add a fine-grained PAT with Contents+PRs on turgs/ReceptionStar."
+            exit 0
+          fi
+          echo "present=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout rstar-cli
+        if: steps.token.outputs.present == 'true'
+        uses: actions/checkout@v4
+        with:
+          path: rstar-cli
+          fetch-depth: 0
+
+      - name: Checkout ReceptionStar
+        if: steps.token.outputs.present == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: turgs/ReceptionStar
+          token: ${{ secrets.RECEPTIONSTAR_CATALOG_SYNC_TOKEN }}
+          path: ReceptionStar
+          fetch-depth: 0
+
+      - name: Set up Go
+        if: steps.token.outputs.present == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          cache-dependency-path: rstar-cli/go.sum
+
+      - name: Export catalog and open PR
+        if: steps.token.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RECEPTIONSTAR_CATALOG_SYNC_TOKEN }}
+          CLI_SHA: ${{ github.sha }}
+          CLI_PATH: rstar-cli
+          RS_PATH: ReceptionStar
+        run: bash rstar-cli/scripts/sync-receptionstar-catalog.sh
