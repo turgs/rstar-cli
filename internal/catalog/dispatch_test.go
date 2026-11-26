@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/turgs/rstar-cli/internal/apiclient"
@@ -132,6 +133,78 @@ func TestCalendarListDefaultsIsAppointment(t *testing.T) {
 	data := res.Data.(map[string]any)
 	if _, ok := data["engagements"]; !ok {
 		t.Fatalf("%#v", data)
+	}
+}
+
+// MCP JSON unmarshals booleans as bool; must not be treated as "unset" (hosted had a blank? bug).
+func TestCalendarListBoolFalseIsAppointment(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("is_appointment") != "false" {
+			t.Fatalf("query %v", r.URL.Query())
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": map[string]any{"engagements": []any{}},
+		})
+	}))
+	defer srv.Close()
+	d := &Dispatcher{Client: apiclient.New(srv.URL, "t")}
+	d.Client.HTTPClient = srv.Client()
+	_, err := d.Call(context.Background(), "calendar", "list", map[string]any{"is_appointment": false})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Encoded slash / .. in ids must fail closed in the client (not rewrite to /api/v1/admin).
+func TestCalendarShowPathInjectionRejected(t *testing.T) {
+	d := &Dispatcher{Client: apiclient.New("https://example.com", "t")}
+	for _, id := range []string{"../admin", "..%2Fadmin", "a/b", "a%2Fb", `..\admin`} {
+		_, err := d.Call(context.Background(), "calendar", "show", map[string]any{"id": id})
+		if err == nil {
+			t.Fatalf("expected reject for id %q", id)
+		}
+		ce := output.AsCLIError(err)
+		if ce.Body.Code != output.CodeUsage {
+			t.Fatalf("id %q: want usage, got %v", id, err)
+		}
+		if !strings.Contains(ce.Body.Message, "invalid path") {
+			t.Fatalf("id %q: message %q", id, ce.Body.Message)
+		}
+	}
+}
+
+func TestBillingShowPathInjectionRejected(t *testing.T) {
+	d := &Dispatcher{Client: apiclient.New("https://example.com", "t")}
+	_, err := d.Call(context.Background(), "billing", "show_invoice", map[string]any{"id": "a/b"})
+	if err == nil {
+		t.Fatal("expected reject")
+	}
+	if output.AsCLIError(err).Body.Code != output.CodeUsage {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestCalendarListRejectsUnknownQueryPollution(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		for _, evil := range []string{"host", "url", "authorization", "path", "method"} {
+			if q.Get(evil) != "" {
+				t.Fatalf("smuggled %s=%q full=%v", evil, q.Get(evil), q)
+			}
+		}
+		if q.Get("is_appointment") != "true" {
+			t.Fatalf("default missing: %v", q)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"engagements": []any{}}})
+	}))
+	defer srv.Close()
+	d := &Dispatcher{Client: apiclient.New(srv.URL, "t")}
+	d.Client.HTTPClient = srv.Client()
+	_, err := d.Call(context.Background(), "calendar", "list", map[string]any{
+		"host": "evil.example", "url": "http://169.254.169.254/", "authorization": "Bearer x",
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
