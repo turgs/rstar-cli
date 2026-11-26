@@ -37,11 +37,6 @@ Source of truth for domain actions is `internal/catalog`. Hosted MCP on private
 [turgs/ReceptionStar](https://github.com/turgs/ReceptionStar) loads
 `config/mcp/catalog.json`.
 
-This public repo does **not** hold a write token for ReceptionStar and does not
-push catalog PRs. ReceptionStar pulls the snapshot from the public exporter
-(board [turgs/rstar-issues#509](https://github.com/turgs/rstar-issues/issues/509),
-[turgs/rstar-issues#510](https://github.com/turgs/rstar-issues/issues/510)).
-
 Local export (JSON on stdout) — same path ReceptionStar uses:
 
 ```bash
