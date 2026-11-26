@@ -37,7 +37,7 @@ Source of truth for domain actions is `internal/catalog`. Hosted MCP on private
 [turgs/ReceptionStar](https://github.com/turgs/ReceptionStar) loads
 `config/mcp/catalog.json`.
 
-Local export (JSON on stdout) — same path ReceptionStar uses:
+Local export (JSON on stdout):
 
 ```bash
 make catalog-json
