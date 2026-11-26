@@ -175,9 +175,11 @@ func (c *Client) resolve(apiPath string, query url.Values) (string, error) {
 		return "", fmt.Errorf("path must be relative to /api/v1, not an absolute URL")
 	}
 	apiPath = strings.TrimPrefix(apiPath, "/")
+	// Reject raw and percent-encoded traversal / multi-segment ids.
+	// PathEscape("../x") is one segment "..%2Fx"; after decode it still walks.
 	for _, seg := range strings.Split(apiPath, "/") {
-		if seg == "." || seg == ".." {
-			return "", fmt.Errorf("invalid path segment %q", seg)
+		if err := validatePathSegment(seg); err != nil {
+			return "", err
 		}
 	}
 	root := config.APIRoot(c.BaseURL)
@@ -205,11 +207,45 @@ func (c *Client) resolve(apiPath string, query url.Values) (string, error) {
 	if cleaned != basePath && !strings.HasPrefix(cleaned, basePath+"/") {
 		return "", fmt.Errorf("path escapes API root")
 	}
+	// Re-validate cleaned segments (defense in depth after JoinPath/Clean).
+	for _, seg := range strings.Split(strings.Trim(cleaned, "/"), "/") {
+		if seg == "" {
+			continue
+		}
+		if err := validatePathSegment(seg); err != nil {
+			return "", err
+		}
+	}
 	u.Path = cleaned
 	if query != nil {
 		u.RawQuery = query.Encode()
 	}
 	return u.String(), nil
+}
+
+// validatePathSegment rejects ".", "..", empty, and any segment that decodes to a
+// multi-part path (encoded slash) or traversal.
+func validatePathSegment(seg string) error {
+	if seg == "" || seg == "." || seg == ".." {
+		return fmt.Errorf("invalid path segment %q", seg)
+	}
+	decoded, err := url.PathUnescape(seg)
+	if err != nil {
+		return fmt.Errorf("invalid path segment encoding %q", seg)
+	}
+	if decoded == "." || decoded == ".." {
+		return fmt.Errorf("invalid path segment %q", seg)
+	}
+	if strings.ContainsAny(decoded, "/\\") {
+		return fmt.Errorf("invalid path segment %q", seg)
+	}
+	// Nested encoding: %252e%252e → %2e%2e → ..
+	if once, err := url.PathUnescape(decoded); err == nil {
+		if once == "." || once == ".." || strings.ContainsAny(once, "/\\") {
+			return fmt.Errorf("invalid path segment %q", seg)
+		}
+	}
+	return nil
 }
 
 func mapAPIError(res *Response) error {

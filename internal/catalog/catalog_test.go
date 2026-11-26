@@ -69,3 +69,35 @@ func TestImplementedClientsActions(t *testing.T) {
 		}
 	}
 }
+
+func TestImplementedCalendarBillingReads(t *testing.T) {
+	cal, _ := ByKey("calendar")
+	for _, name := range []string{"list", "show", "list_appointment_types"} {
+		a, ok := FindAction(cal, name)
+		if !ok || !a.Implemented || a.Method == "" || a.Path == "" {
+			t.Fatalf("calendar.%s missing binding: %+v ok=%v", name, a, ok)
+		}
+	}
+	for _, name := range []string{"create", "update", "cancel", "uncancel"} {
+		a, ok := FindAction(cal, name)
+		if !ok || a.Implemented {
+			t.Fatalf("calendar.%s should stay not implemented", name)
+		}
+	}
+
+	bill, _ := ByKey("billing")
+	for _, name := range []string{"list_invoices", "show_invoice", "list_unbilled_appointments"} {
+		a, ok := FindAction(bill, name)
+		if !ok || !a.Implemented || a.Method == "" || a.Path == "" {
+			t.Fatalf("billing.%s missing binding: %+v ok=%v", name, a, ok)
+		}
+	}
+	a, ok := FindAction(bill, "invoice_unbilled_appointments")
+	if !ok || a.Implemented || !a.Synthetic {
+		t.Fatalf("invoice_unbilled write should stay not implemented synthetic: %+v", a)
+	}
+	unbilled, _ := FindAction(bill, "list_unbilled_appointments")
+	if !unbilled.Synthetic {
+		t.Fatal("list_unbilled_appointments must stay synthetic")
+	}
+}

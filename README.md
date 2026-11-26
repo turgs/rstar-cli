@@ -11,7 +11,7 @@ Early preview. This release includes:
 - Auth profiles (practice base URL + staff personal access token)
 - JSON envelope for agents (`--json`)
 - `doctor`, `commands --json`, `help --agent`
-- Identity + clients vertical slice against live `/api/v1`
+- Identity + clients + calendar/billing **reads** against live `/api/v1`
 - Agent skill (`rstar skill install`)
 - `rstar mcp` stdio server (domain gateways, read-only by default)
 

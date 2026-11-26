@@ -94,6 +94,22 @@ func TestResolveRejectsEncodedDotDot(t *testing.T) {
 	}
 }
 
+func TestResolveRejectsEncodedSlashInSegment(t *testing.T) {
+	c := New("https://example.com", "tok")
+	// PathEscape("../admin") is one segment; must still reject after unescape.
+	for _, p := range []string{
+		"/engagements/..%2Fadmin",
+		"/engagements/%2e%2e%2fadmin",
+		"/invoices/a%2Fb",
+		"/clients/..%5Cadmin",
+	} {
+		_, err := c.resolve(p, nil)
+		if err == nil {
+			t.Fatalf("expected error for %s", p)
+		}
+	}
+}
+
 func TestResolveJoin(t *testing.T) {
 	c := New("https://example.com", "tok")
 	got, err := c.resolve("/clients", nil)

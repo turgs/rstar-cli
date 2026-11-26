@@ -100,6 +100,8 @@ func init() {
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(identityCmd)
 	rootCmd.AddCommand(clientsCmd)
+	rootCmd.AddCommand(calendarCmd)
+	rootCmd.AddCommand(billingCmd)
 	rootCmd.AddCommand(commandsCmd)
 	rootCmd.AddCommand(mcpCmd)
 	rootCmd.AddCommand(skillCmd)
@@ -154,19 +156,26 @@ Auth
   Token from Settings > Your Account > API Keys (Bearer rs_pat_…).
   Stored in OS keyring when available; file fallback under the config dir.
 
-Vertical slice (live /api/v1)
+Live /api/v1 slice
   rstar identity whoami --json
   rstar clients list --json
   rstar clients show ID --json
+  rstar calendar list --from-date YYYY-MM-DD --json
+  rstar calendar show ID --json
+  rstar calendar types --json
+  rstar billing invoices --json
+  rstar billing invoice ID --json
+  rstar billing unbilled --json
 
 MCP domain gateways (ADR 0001)
   One tool per domain; call { "action", "params" }.
   In-band describe on every tool. Read-only default; --writes to opt in.
-  --domains identity,clients fails closed on unknown names.
-  Catalog module: internal/catalog (shared spine for hosted MCP later).
+  --domains identity,clients,calendar,billing fails closed on unknown names.
+  Catalog module: internal/catalog (shared spine for hosted MCP).
 
 PHI
   Client show/list is P1 health data. Do not paste into public tickets/logs.
+  Invoice show is P2; prefer --fields / view=summary when summarizing.
   Clinical note bodies are not in this slice; when they land they stay gated.
 
 https://receptionstar.com

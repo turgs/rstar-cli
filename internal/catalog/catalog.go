@@ -51,32 +51,15 @@ type Domain struct {
 	Actions []Action `json:"actions"`
 }
 
-// All returns the v1 catalog. Identity + clients are implemented; other ADR
-// domains are listed so discovery stays honest about the roadmap.
+// All returns the v1 catalog. Identity, clients, and calendar/billing reads are
+// implemented; remaining ADR domains stay discoverable via describe.
 func All() []Domain {
 	return []Domain{
 		identityDomain(),
 		clientsDomain(),
+		calendarDomain(),
+		billingDomain(),
 		// Roadmap domains (ADR 0001) — describe works; actions not implemented yet.
-		roadmapDomain("calendar", "rstar_calendar", "ReceptionStar Calendar",
-			"Appointments and appointment types.",
-			[]Action{
-				{Name: "list", Summary: "List appointments", ReadOnly: true},
-				{Name: "show", Summary: "Show an appointment", ReadOnly: true},
-				{Name: "list_appointment_types", Summary: "List appointment types", ReadOnly: true},
-				{Name: "create", Summary: "Create an appointment", ReadOnly: false},
-				{Name: "update", Summary: "Update an appointment", ReadOnly: false},
-				{Name: "cancel", Summary: "Cancel an appointment", ReadOnly: false, Destructive: true},
-				{Name: "uncancel", Summary: "Uncancel an appointment", ReadOnly: false},
-			}),
-		roadmapDomain("billing", "rstar_billing", "ReceptionStar Billing",
-			"Invoices, payments, credits, and unbilled composites.",
-			[]Action{
-				{Name: "list_invoices", Summary: "List invoices", ReadOnly: true},
-				{Name: "show_invoice", Summary: "Show an invoice", ReadOnly: true},
-				{Name: "list_unbilled_appointments", Summary: "List unbilled appointments", ReadOnly: true, Synthetic: true},
-				{Name: "invoice_unbilled_appointments", Summary: "Invoice unbilled appointments", ReadOnly: false, Synthetic: true},
-			}),
 		roadmapDomain("clinical", "rstar_clinical", "ReceptionStar Clinical",
 			"Case note and client file metadata. Bodies gated (PHI).",
 			[]Action{
@@ -129,6 +112,101 @@ func identityDomain() Domain {
 			{
 				Name: "practices", Summary: "Show the active CLI profile practice (API is practice-scoped)",
 				ReadOnly: true, Implemented: true,
+			},
+		},
+	}
+}
+
+func calendarDomain() Domain {
+	return Domain{
+		Key:   "calendar",
+		Tool:  "rstar_calendar",
+		Title: "ReceptionStar Calendar",
+		Blurb: "Appointments (API: engagements) and appointment types.",
+		Actions: []Action{
+			{
+				Name: "list", Summary: "List appointments (engagements; defaults is_appointment=true)",
+				ReadOnly: true, Implemented: true, Method: "GET", Path: "/engagements",
+				Params: []Param{
+					{Name: "page", In: "query", Type: "integer"},
+					{Name: "per_page", In: "query", Type: "integer", Description: "Default 25, max 100"},
+					{Name: "from_date", In: "query", Type: "string", Description: "YYYY-MM-DD (alias: from)"},
+					{Name: "to_date", In: "query", Type: "string", Description: "YYYY-MM-DD (alias: to)"},
+					{Name: "is_appointment", In: "query", Type: "string", Description: "true|false; defaults true when omitted"},
+					{Name: "client_id", In: "query", Type: "string"},
+					{Name: "client_ids", In: "query", Type: "string", Description: "Comma-separated client ids"},
+					{Name: "user_id", In: "query", Type: "string", Description: "Practitioner id"},
+					{Name: "user_ids", In: "query", Type: "string"},
+					{Name: "location_id", In: "query", Type: "string"},
+					{Name: "location_ids", In: "query", Type: "string"},
+					{Name: "sort", In: "query", Type: "string", Description: "e.g. start_date:asc"},
+				},
+			},
+			{
+				Name: "show", Summary: "Show one appointment (engagement) by id",
+				ReadOnly: true, Implemented: true, Method: "GET", Path: "/engagements/{id}",
+				Params: []Param{
+					{Name: "id", In: "path", Type: "string", Required: true},
+				},
+			},
+			{
+				Name: "list_appointment_types", Summary: "List appointment types (not archived)",
+				ReadOnly: true, Implemented: true, Method: "GET", Path: "/appointment_types",
+				Params: []Param{
+					{Name: "page", In: "query", Type: "integer"},
+					{Name: "per_page", In: "query", Type: "integer", Description: "Default 25, max 100"},
+				},
+			},
+			// Writes stay roadmap until a later catalog slice.
+			{Name: "create", Summary: "Create an appointment", ReadOnly: false, Implemented: false},
+			{Name: "update", Summary: "Update an appointment", ReadOnly: false, Implemented: false},
+			{Name: "cancel", Summary: "Cancel an appointment", ReadOnly: false, Destructive: true, Implemented: false},
+			{Name: "uncancel", Summary: "Uncancel an appointment", ReadOnly: false, Implemented: false},
+		},
+	}
+}
+
+func billingDomain() Domain {
+	return Domain{
+		Key:   "billing",
+		Tool:  "rstar_billing",
+		Title: "ReceptionStar Billing",
+		Blurb: "Invoices and unbilled appointment composites (P2; prefer sparse fields).",
+		Actions: []Action{
+			{
+				Name: "list_invoices", Summary: "List invoices (paginated)",
+				ReadOnly: true, Implemented: true, Method: "GET", Path: "/invoices",
+				Params: []Param{
+					{Name: "page", In: "query", Type: "integer"},
+					{Name: "per_page", In: "query", Type: "integer", Description: "Default 25, max 100"},
+					{Name: "search", In: "query", Type: "string"},
+					{Name: "status", In: "query", Type: "string", Description: "Invoice status id"},
+					{Name: "client_id", In: "query", Type: "string"},
+					{Name: "fields", In: "query", Type: "string", Description: "Sparse field list"},
+				},
+			},
+			{
+				Name: "show_invoice", Summary: "Show one invoice by id",
+				ReadOnly: true, Implemented: true, Method: "GET", Path: "/invoices/{id}",
+				Params: []Param{
+					{Name: "id", In: "path", Type: "string", Required: true},
+					{Name: "fields", In: "query", Type: "string"},
+					{Name: "view", In: "query", Type: "string", Description: "summary omits line items/payments"},
+				},
+			},
+			{
+				// Same eligibility set as Suggested Invoices (web) / InvoiceBatchCreationService preview.
+				Name: "list_unbilled_appointments", Summary: "List clients with eligible unbilled past appointments",
+				ReadOnly: true, Implemented: true, Synthetic: true,
+				Method: "GET", Path: "/invoices/unbilled_appointments",
+				Params: []Param{
+					{Name: "page", In: "query", Type: "integer"},
+					{Name: "per_page", In: "query", Type: "integer", Description: "Default 25, max 100"},
+				},
+			},
+			{
+				Name: "invoice_unbilled_appointments", Summary: "Invoice unbilled appointments",
+				ReadOnly: false, Implemented: false, Synthetic: true,
 			},
 		},
 	}
