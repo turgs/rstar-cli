@@ -37,10 +37,6 @@ Source of truth for domain actions is `internal/catalog`. Hosted MCP on private
 [turgs/ReceptionStar](https://github.com/turgs/ReceptionStar) loads
 `config/mcp/catalog.json`.
 
-After catalog changes merge to `main`, workflow
-`.github/workflows/sync-receptionstar-catalog.yml` exports the snapshot and
-opens or updates a ReceptionStar PR (board [turgs/rstar-issues#508](https://github.com/turgs/rstar-issues/issues/508)).
-
 Local export (JSON on stdout):
 
 ```bash
@@ -48,9 +44,5 @@ make catalog-json
 # or: go run ./cmd/rstar-catalog-export
 ```
 
-ReceptionStar still fail-closes on lag via `bin/sync-mcp-catalog --check`
+ReceptionStar fail-closes on lag via `bin/sync-mcp-catalog --check`
 ([turgs/rstar-issues#506](https://github.com/turgs/rstar-issues/issues/506)).
-
-Operator setup once: repo secret `RECEPTIONSTAR_CATALOG_SYNC_TOKEN` on
-`turgs/rstar-cli` — fine-grained PAT with **Contents** and **Pull requests**
-read/write on `turgs/ReceptionStar`.
