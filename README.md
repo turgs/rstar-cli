@@ -6,7 +6,13 @@ Use ReceptionStar from your terminal - useful on its own, and for coding agents 
 
 ## Status
 
-Early preview. This release includes:
+Early preview.
+
+**Practices:** use hosted MCP in Reception Star (ChatGPT / Claude). You do not need this CLI for normal AI assistants.
+
+**Local MCP (\`rstar mcp\`) is frozen** for advanced users only (terminal / coding agents on your laptop). No owner-facing roadmap; hosted gets new capabilities first. This repo still owns the shared tool catalog.
+
+This release includes:
 
 - Auth profiles (practice base URL + staff personal access token)
 - JSON envelope for agents (`--json`)
