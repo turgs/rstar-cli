@@ -186,7 +186,6 @@ func isCrossDevice(err error) bool {
 	if err == nil {
 		return false
 	}
-	// Linux EXDEV message; also match syscall errno when present.
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "cross-device") || strings.Contains(msg, "exdev")
 }

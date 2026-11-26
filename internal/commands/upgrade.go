@@ -197,7 +197,12 @@ func runNativeUpgrade(ctx context.Context, client *release.Client, info *release
 
 	fmt.Fprint(progress, "Installing… ")
 	// Stage next to the target so rename stays on the same filesystem.
-	staged, err := os.CreateTemp(filepath.Dir(target), ".rstar-upgrade-")
+	// Keep a runnable suffix on Windows so the pre-install version probe can exec it.
+	stagePattern := ".rstar-upgrade-*"
+	if goos == "windows" {
+		stagePattern = ".rstar-upgrade-*.exe"
+	}
+	staged, err := os.CreateTemp(filepath.Dir(target), stagePattern)
 	if err != nil {
 		fmt.Fprintln(progress, "failed")
 		return upgradeErr(codeUpgradeFailed, fmt.Sprintf("could not create staging file: %v", err), "")
@@ -215,7 +220,14 @@ func runNativeUpgrade(ctx context.Context, client *release.Client, info *release
 		_ = os.Chmod(stagedPath, infoStat.Mode().Perm())
 	}
 
-	if reported, probeErr := upgradeProbeVersion(ctx, stagedPath); probeErr == nil && !versionMatches(reported, latest) {
+	reported, probeErr := upgradeProbeVersion(ctx, stagedPath)
+	if probeErr != nil {
+		fmt.Fprintln(progress, "failed")
+		return upgradeErr(codeUpgradeFailed,
+			fmt.Sprintf("downloaded binary failed its pre-install check: %v", probeErr),
+			"The existing install was left in place.")
+	}
+	if !versionMatches(reported, latest) {
 		fmt.Fprintln(progress, "failed")
 		return upgradeErr(codeUpgradeFailed,
 			fmt.Sprintf("downloaded binary reports version %s, expected %s", reported, latest),
@@ -229,7 +241,7 @@ func runNativeUpgrade(ctx context.Context, client *release.Client, info *release
 			"The existing install should still be in place. Retry or reinstall: "+installerHint)
 	}
 
-	reported, probeErr := upgradeProbeVersion(ctx, target)
+	reported, probeErr = upgradeProbeVersion(ctx, target)
 	if probeErr != nil || !versionMatches(reported, latest) {
 		detail := fmt.Sprintf("reports %s, expected %s", reported, latest)
 		if probeErr != nil {

@@ -159,13 +159,19 @@ main() {
   mkdir -p "$dir"
   if [[ "$ext" == "zip" ]]; then
     command -v unzip >/dev/null 2>&1 || err "unzip is required for Windows archives"
-    unzip -q "${tmp}/${archive_name}" -d "$dir"
+    # -j junk paths: only basenames, avoids zip-slip into parent dirs
+    unzip -j -q "${tmp}/${archive_name}" -d "$dir"
   else
     tar -xzf "${tmp}/${archive_name}" -C "$dir"
   fi
 
   bin_src=$(find "$dir" -type f \( -name "$BIN_NAME" -o -name "${BIN_NAME}.exe" \) | head -n 1)
   [[ -n "$bin_src" ]] || err "Archive did not contain ${BIN_NAME}"
+  # Refuse path escape if an archive member resolved outside the extract dir
+  case "$bin_src" in
+    "$dir"/*) ;;
+    *) err "Refusing archive member outside extract dir: $bin_src" ;;
+  esac
 
   dest="${BIN_DIR}/${BIN_NAME}"
   if [[ "$os" == "windows" ]]; then
