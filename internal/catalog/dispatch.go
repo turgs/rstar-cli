@@ -73,7 +73,7 @@ func (d *Dispatcher) Call(ctx context.Context, domainKey, action string, params 
 		return nil, output.NewError(output.CodeNotImpl,
 			fmt.Sprintf("%s.%s is not implemented in this CLI build yet", dom.Key, act.Name),
 			output.ExitAPI).
-			WithHint("Vertical slice today: identity + clients. See catalog and ADR 0001.")
+			WithHint("Implemented domains: identity, clients, calendar (reads), billing (reads). See catalog and ADR 0001.")
 	}
 
 	switch dom.Key {
@@ -81,6 +81,10 @@ func (d *Dispatcher) Call(ctx context.Context, domainKey, action string, params 
 		return d.dispatchIdentity(ctx, act, params)
 	case "clients":
 		return d.dispatchClients(ctx, act, params)
+	case "calendar":
+		return d.dispatchCalendar(ctx, act, params)
+	case "billing":
+		return d.dispatchBilling(ctx, act, params)
 	default:
 		return nil, output.NewError(output.CodeNotImpl, "domain not wired", output.ExitAPI)
 	}
@@ -244,14 +248,107 @@ func (d *Dispatcher) dispatchClients(ctx context.Context, act Action, params map
 	}
 }
 
-// clientListResult maps the Rails index.json.jb shape into the agent envelope:
+func (d *Dispatcher) dispatchCalendar(ctx context.Context, act Action, params map[string]any) (*Result, error) {
+	switch act.Name {
+	case "list":
+		q := url.Values{}
+		copyQuery(q, params, "page", "per_page", "client_id", "client_ids",
+			"user_id", "user_ids", "location_id", "location_ids", "sort")
+		// Date filters: accept from/to aliases used in some API docs.
+		from, _ := stringParam(params, "from_date")
+		if from == "" {
+			from, _ = stringParam(params, "from")
+		}
+		if from != "" {
+			q.Set("from_date", from)
+		}
+		to, _ := stringParam(params, "to_date")
+		if to == "" {
+			to, _ = stringParam(params, "to")
+		}
+		if to != "" {
+			q.Set("to_date", to)
+		}
+		// Catalog action is "list appointments"; default is_appointment=true unless set.
+		if s, ok := stringParam(params, "is_appointment"); ok && s != "" {
+			q.Set("is_appointment", s)
+		} else {
+			q.Set("is_appointment", "true")
+		}
+		res, err := d.Client.Get(ctx, "/engagements", q)
+		if err != nil {
+			return nil, err
+		}
+		return listResult(res, "appointments listed"), nil
+	case "show":
+		id, err := requireID(params)
+		if err != nil {
+			return nil, err
+		}
+		res, err := d.Client.Get(ctx, "/engagements/"+url.PathEscape(id), nil)
+		if err != nil {
+			return nil, err
+		}
+		return &Result{Data: res.Data(), Summary: "appointment " + id, Meta: metaFrom(res)}, nil
+	case "list_appointment_types":
+		q := url.Values{}
+		copyQuery(q, params, "page", "per_page")
+		res, err := d.Client.Get(ctx, "/appointment_types", q)
+		if err != nil {
+			return nil, err
+		}
+		return listResult(res, "appointment types listed"), nil
+	default:
+		return nil, output.NewError(output.CodeUnknownAction, act.Name, output.ExitUsage)
+	}
+}
+
+func (d *Dispatcher) dispatchBilling(ctx context.Context, act Action, params map[string]any) (*Result, error) {
+	switch act.Name {
+	case "list_invoices":
+		q := url.Values{}
+		copyQuery(q, params, "page", "per_page", "search", "status", "client_id", "fields")
+		res, err := d.Client.Get(ctx, "/invoices", q)
+		if err != nil {
+			return nil, err
+		}
+		return listResult(res, "invoices listed"), nil
+	case "show_invoice":
+		id, err := requireID(params)
+		if err != nil {
+			return nil, err
+		}
+		q := url.Values{}
+		copyQuery(q, params, "fields", "view")
+		res, err := d.Client.Get(ctx, "/invoices/"+url.PathEscape(id), q)
+		if err != nil {
+			return nil, err
+		}
+		return &Result{Data: res.Data(), Summary: "invoice " + id, Meta: metaFrom(res)}, nil
+	case "list_unbilled_appointments":
+		q := url.Values{}
+		copyQuery(q, params, "page", "per_page")
+		res, err := d.Client.Get(ctx, "/invoices/unbilled_appointments", q)
+		if err != nil {
+			return nil, err
+		}
+		return listResult(res, "unbilled appointments listed"), nil
+	default:
+		return nil, output.NewError(output.CodeUnknownAction, act.Name, output.ExitUsage)
+	}
+}
+
+// listResult maps a Rails list envelope into the agent envelope:
 //
-//	API:  { data: { clients: [...] }, pagination: {...}, rate_limit: {...} }
-//	CLI:  envelope.data = { clients: [...] }; envelope.meta = pagination + rate_limit
-//
-// Avoids the old double-wrap envelope.data.data.clients.
-func clientListResult(res *apiclient.Response, summary string) *Result {
+//	API:  { data: { <resource>: [...] }, pagination: {...}, rate_limit: {...} }
+//	CLI:  envelope.data = data object; envelope.meta = pagination + rate_limit
+func listResult(res *apiclient.Response, summary string) *Result {
 	return &Result{Data: res.Data(), Summary: summary, Meta: metaFrom(res)}
+}
+
+// clientListResult is the clients list helper (same shape as listResult).
+func clientListResult(res *apiclient.Response, summary string) *Result {
+	return listResult(res, summary)
 }
 
 func metaFrom(res *apiclient.Response) map[string]any {

@@ -175,8 +175,9 @@ func TestADR_RequiredPathParamsDocumented(t *testing.T) {
 }
 
 func TestADR_VerticalSliceIdentityClientsImplemented(t *testing.T) {
-	// Ticket #479 done-looks-like: identity + clients thin slice is live.
-	for _, key := range []string{"identity", "clients"} {
+	// Ticket turgs/rstar-issues#479: identity + clients thin slice is live.
+	// Ticket turgs/rstar-issues#505: calendar + billing reads join that set.
+	for _, key := range []string{"identity", "clients", "calendar", "billing"} {
 		d, ok := ByKey(key)
 		if !ok {
 			t.Fatalf("missing domain %s", key)
