@@ -10,7 +10,7 @@ Early preview.
 
 **Practices:** use hosted MCP in Reception Star (ChatGPT / Claude). You do not need this CLI for normal AI assistants.
 
-**Local MCP (\`rstar mcp\`) is frozen** for advanced users only (terminal / coding agents on your laptop). No owner-facing roadmap; hosted gets new capabilities first. This repo still owns the shared tool catalog.
+**Local MCP (`rstar mcp`) is frozen** for advanced users only (terminal / coding agents on your laptop). No owner-facing roadmap; hosted gets new capabilities first. This repo still owns the shared tool catalog.
 
 This release includes:
 
