@@ -6,7 +6,13 @@ Use ReceptionStar from your terminal - useful on its own, and for coding agents 
 
 ## Status
 
-Early preview. This release includes:
+Early preview.
+
+**Practices:** use hosted MCP in Reception Star (ChatGPT / Claude). You do not need this CLI for normal AI assistants.
+
+**Local MCP (`rstar mcp`)** is a thin stdio adapter for advanced users (terminal / coding agents on your laptop). Same shared catalog as hosted MCP (domains are not withheld). Practice-facing product work lands on hosted first; keep this adapter small. This repo owns the catalog.
+
+This release includes:
 
 - Auth profiles (practice base URL + staff personal access token)
 - JSON envelope for agents (`--json`)
